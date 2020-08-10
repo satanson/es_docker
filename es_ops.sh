@@ -4,6 +4,8 @@ basedir=$(cd $(dirname $(readlink -f ${BASH_SOURCE:-$0}));pwd)
 test  ${basedir} == ${PWD}
 esLocalRoot=$(cd ${basedir}/../es_all/elasticsearch;pwd)
 esDockerRoot=/home/hdfs/es
+kibanaLocalRoot=$(cd ${basedir}/../es_all/kibana;pwd)
+kibanaDockerRoot=/home/hdfs/kibana
 
 es_master_list=$(perl -lne 'print $1 if /^\s*\d+(?:\.\d+){3}\s+(es_master\d+)\s*$/' ${PWD}/hosts )
 es_data_list=$(perl -lne 'print $1 if /^\s*\d+(?:\.\d+){3}\s+(es_data\d+)\s*$/' ${PWD}/hosts )
@@ -48,6 +50,7 @@ es_coord_args="
   "
 
 dockerFlags="-tid --rm -u hdfs -w ${esDockerRoot} --privileged --net static_net0 -v ${PWD}/hosts:/etc/hosts -v ${esLocalRoot}:${esDockerRoot}"
+kibanaDockerFlags="-tid --rm -u hdfs -w ${kibanaDockerRoot} --privileged --net static_net0 -v ${PWD}/hosts:/etc/hosts -v ${kibanaLocalRoot}:${kibanaDockerRoot}"
 
 stop_node(){
   local name=$1;shift
@@ -60,7 +63,7 @@ stop_node(){
 ## es-fe
 
 stop_es_node_args(){
-  local node=${1:?"undefined 'es_master'"};shift
+  local node=${1:?"undefined 'es node'"};shift
   local finalize=${1:-"false"}
   stop_node ${node}
   if [ "x${finalize}x" != 'xfalsex' ];then
@@ -75,11 +78,11 @@ stop_es_node_args(){
 start_es_node_args(){
   local node=${1:?"undefined 'node'"};shift
   local bootstrap=${1:-"false"};shift;
-  local ip=$(perl -aF/\\s+/ -ne "print \$F[0] if /\b$node\b/" hosts)
+  local ip=$(perl -aF/\\s+/ -ne "print \$F[0] if /^\\d+(\\.\\d+){3}\\s+\\b$node\\b/" hosts)
 
-  local nodeType=$(perl -e "print \$1 if qq/${node}/=~/^([^\d]+)\d+$/")
+  local nodeType=$(perl -e "print \$1 if qq/${node}/=~/^([^\d]+)\d*$/")
   local nodeConfigDir=""
-  for configDir in $(eval "echo {${node}_config,${nodeType}_config,config}");do
+  for configDir in $(eval "echo {${node}_config,${nodeType}_config,es_config}");do
     if [ -d "${configDir}" ];then
       nodeConfigDir=${configDir}
     fi
@@ -101,10 +104,6 @@ start_es_node_args(){
   "
 
   local args=$(eval "echo \${${nodeType}_args:?"undefined"}")
-  echo "nodeType=${nodeType}"
-  echo "master_args=${master_args}"
-  echo "data_args=${data_args}"
-  echo "coord_args=${coord_args}"
   [ -d "${node}_logs" ] && rm -fr ${node:?"undefined"}_logs
   if [ "x${bootstrap}x" != "xfalsex" ];then
     [ -d "${PWD}/${node}_data" ] &&  rm -fr ${PWD}/${node}_data/*
@@ -222,20 +221,101 @@ bootstrap_all_es_coord(){ do_all ${FUNCNAME};}
 start_all_es_coord(){ do_all ${FUNCNAME};}
 restart_all_es_coord(){ do_all ${FUNCNAME};}
 
+## kibana
+
+start_kibana_node_args(){
+  local node=${1:?"undefined 'node'"};shift
+  local bootstrap=${1:-"false"};shift;
+  local ip=$(perl -aF/\\s+/ -ne "print \$F[0] if /^\\d+(\\.\\d+){3}\\s+\\b$node\\b/" hosts)
+
+  local nodeType=$(perl -e "print \$1 if qq/${node}/=~/^([^\d]+)\d*$/")
+  local nodeConfigDir=""
+  for configDir in $(eval "echo {${node}_config,${nodeType}_config}");do
+    if [ -d "${configDir}" ];then
+      nodeConfigDir=${configDir}
+    fi
+  done
+  if [ -z "${nodeConfigDir}" ]; then
+    red_print "Node config directory not exists" >&2
+    exit 1
+  fi
+
+  local flags="
+  -v ${PWD}/${node}_data:${kibanaDockerRoot}/data
+  -v ${PWD}/${node}_logs:${kibanaDockerRoot}/logs
+  -v ${PWD}/${nodeConfigDir}:${kibanaDockerRoot}/config
+  --name $node
+  --hostname $node
+  -e NODE_HOME=${kibanaDockerRoot}/node
+  -e PATH=${kibanaDockerRoot}/node/bin:/usr/local/bin/:/usr/bin/:/bin:/usr/sbin:/sbin
+  --ip $ip
+  "
+
+  local args=$(eval "echo \${${nodeType}_args}")
+  [ -d "${node}_logs" ] && rm -fr ${node:?"undefined"}_logs
+  if [ "x${bootstrap}x" != "xfalsex" ];then
+    [ -d "${PWD}/${node}_data" ] &&  rm -fr ${PWD}/${node}_data/*
+  fi
+  mkdir -p ${PWD}/${node}_logs
+  mkdir -p ${PWD}/${node}_data
+
+  # run docker
+  green_print docker run ${kibanaDockerFlags} ${flags} hadoop_debian:8.8 ${kibanaDockerRoot}/bin/kibana ${args}
+  docker run ${kibanaDockerFlags} ${flags} hadoop_debian:8.8 ${kibanaDockerRoot}/bin/kibana ${args}
+}
+
+stop_kibana_node_args(){
+  local node=${1:?"undefined 'kibana node'"};shift
+  local finalize=${1:-"false"}
+  stop_node ${node}
+  if [ "x${finalize}x" != 'xfalsex' ];then
+    datadir=${node}_data
+    logdir=${node}_logs
+    for dir in $(eval "echo ${node}_{data,logs}");do
+      [ -d "${dir}" ] && rm -fr ${dir:?"undefined"}
+    done
+  fi
+}
+
+bootstrap_kibana(){
+  start_kibana_node_args "kibana" "true"
+}
+
+start_kibana(){
+  start_kibana_node_args "kibana" "false"
+}
+
+stop_kibana(){
+  stop_kibana_node_args "kibana" "false"
+}
+
+destroy_kibana(){
+  stop_kibana_node_args "kibana" "true"
+}
+
+restart_kibana(){
+  stop_kibana
+  start_kibana
+}
+
+
 ## cluster
 start_es_cluster(){
   start_all_es_master
   start_all_es_data
   start_all_es_coord
+  start_kibana
 }
 
 stop_es_cluster(){
+  stop_kibana
   stop_all_es_coord
   stop_all_es_data
   stop_all_es_master
 }
 
 restart_es_cluster(){
+  restart_kibana
   restart_all_es_coord
   restart_all_es_data
   restart_all_es_master
@@ -243,22 +323,15 @@ restart_es_cluster(){
 
 bootstrap_es_cluster(){
   stop_es_cluster
-  for fe in ${es_master_follower_list};do
-    bootstrap_es_master ${fe}
-    sleep 20
-  done
-
-  for fe in ${es_master_observer_list};do
-    bootstrap_es_master ${fe}
-  done
-
-  sleep 5
-
+  bootstrap_all_es_master
+  sleep 10
   bootstrap_all_es_data
   bootstrap_all_es_coord
+  bootstrap_kibana
 }
 
 destroy_es_cluster(){
+  destroy_kibana
   destroy_all_es_coord
   destroy_all_es_data
   destroy_all_es_master

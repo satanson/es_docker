@@ -14,6 +14,14 @@ cluster_op(){
   ${cmd}_${service}
 }
 
+kibana_op(){
+  yellow_print "cmd: "
+  cmd=$(selectOption "start" "restart" "stop" "bootstrap" "destroy")
+  green_print "exec: ${cmd}_${service}"
+  confirm
+  ${cmd}_${service}
+}
+
 service_op(){
   yellow_print "cmd: "
   cmd=$(selectOption "restart" "restart_all" "stop" "stop_all" "start" "start_all" "bootstrap" "bootstrap_all" "destroy" "destroy_all")
@@ -38,9 +46,11 @@ service_op(){
 
 op(){
   yellow_print "service: "
-  service=$(selectOption "es_cluster" "es_master" "es_data" "es_coord")
+  service=$(selectOption "es_cluster" "kibana" "es_master" "es_data" "es_coord")
   if isIn ${service} "es_cluster";then
     cluster_op
+  elif isIn ${service} "kibana";then
+    kibana_op
   else
     service_op
   fi
