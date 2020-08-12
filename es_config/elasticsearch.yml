@@ -98,3 +98,6 @@ discovery.zen.minimum_master_nodes: 2
 transport.tcp.compress: true
 http.compression: true
 reindex.remote.whitelist: "*.*.*.*:*"
+#xpack.security.enabled: true
+#xpack.security.transport.ssl.enabled: true
+#xpack.security.http.ssl: true

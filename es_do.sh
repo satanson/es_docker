@@ -46,8 +46,8 @@ service_op(){
 
 op(){
   yellow_print "service: "
-  service=$(selectOption "es_cluster" "kibana" "es_master" "es_data" "es_coord")
-  if isIn ${service} "es_cluster";then
+  service=$(selectOption "es_cluster_and_kibana" "es_cluster" "kibana" "es_master" "es_data" "es_coord")
+  if isIn ${service} "es_cluster|es_cluster_and_kibana";then
     cluster_op
   elif isIn ${service} "kibana";then
     kibana_op

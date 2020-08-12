@@ -2,9 +2,11 @@
 set -e -o pipefail
 basedir=$(cd $(dirname $(readlink -f ${BASH_SOURCE:-$0}));pwd)
 test  ${basedir} == ${PWD}
-esLocalRoot=$(cd ${basedir}/../es_all/elasticsearch;pwd)
+esLocalRoot=$(cd $(readlink -f ${basedir}/../es_all/elasticsearch);pwd)
 esDockerRoot=/home/satanson/es
-kibanaLocalRoot=$(cd ${basedir}/../es_all/kibana;pwd)
+metricbeatLocalRoot=$(cd $(readlink -f ${basedir}/../es_all/metricbeat);pwd)
+metricbeatDockerRoot=/home/satanson/metricbeat
+kibanaLocalRoot=$(cd $(readlink -f ${basedir}/../es_all/kibana);pwd)
 kibanaDockerRoot=/home/satanson/kibana
 
 es_master_list=$(perl -lne 'print $1 if /^\s*\d+(?:\.\d+){3}\s+(es_master\d+)\s*$/' ${PWD}/hosts )
@@ -49,8 +51,10 @@ es_coord_args="
   ${zenPingUnicastHosts}
   "
 
-dockerFlags="-tid --rm -u satanson -w ${esDockerRoot} --privileged --net static_net0 -v ${PWD}/hosts:/etc/hosts -v ${esLocalRoot}:${esDockerRoot}"
-kibanaDockerFlags="-tid --rm -u satanson -w ${kibanaDockerRoot} --privileged --net static_net0 -v ${PWD}/hosts:/etc/hosts -v ${kibanaLocalRoot}:${kibanaDockerRoot}"
+dockerFlags="-tid --rm -u satanson -w ${esDockerRoot} --privileged --net static_net0 -v ${PWD}/hosts:/etc/hosts \
+  -v ${esLocalRoot}:${esDockerRoot} -v ${metricbeatLocalRoot}:${metricbeatDockerRoot}"
+kibanaDockerFlags="-tid --rm -u satanson -w ${kibanaDockerRoot} --privileged --net static_net0 -v ${PWD}/hosts:/etc/hosts \
+  -v ${kibanaLocalRoot}:${kibanaDockerRoot} -v ${metricbeatLocalRoot}:${metricbeatDockerRoot}"
 
 stop_node(){
   local name=$1;shift
@@ -278,6 +282,7 @@ stop_kibana_node_args(){
 }
 
 bootstrap_kibana(){
+  stop_kibana_node_args "kibana" "true"
   start_kibana_node_args "kibana" "true"
 }
 
@@ -304,18 +309,15 @@ start_es_cluster(){
   start_all_es_master
   start_all_es_data
   start_all_es_coord
-  start_kibana
 }
 
 stop_es_cluster(){
-  stop_kibana
   stop_all_es_coord
   stop_all_es_data
   stop_all_es_master
 }
 
 restart_es_cluster(){
-  restart_kibana
   restart_all_es_coord
   restart_all_es_data
   restart_all_es_master
@@ -327,12 +329,36 @@ bootstrap_es_cluster(){
   sleep 10
   bootstrap_all_es_data
   bootstrap_all_es_coord
-  bootstrap_kibana
 }
 
 destroy_es_cluster(){
-  destroy_kibana
   destroy_all_es_coord
   destroy_all_es_data
   destroy_all_es_master
+}
+
+## cluster_and_kibana
+start_es_cluster_and_kibana(){
+  start_es_cluster
+  start_kibana
+}
+
+stop_es_cluster_and_kibana(){
+  stop_kibana
+  stop_es_cluster
+}
+
+restart_es_cluster_and_kibana(){
+  restart_kibana
+  restart_es_cluster
+}
+
+bootstrap_es_cluster_and_kibana(){
+  bootstrap_es_cluster
+  bootstrap_kibana
+}
+
+destroy_es_cluster_and_kibana(){
+  destroy_kibana
+  destroy_es_cluster
 }
