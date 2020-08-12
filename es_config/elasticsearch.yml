@@ -32,11 +32,11 @@ node.attr.rack: r1
 #
 # Path to directory where to store the data (separate multiple locations by comma):
 #
-path.data: /home/hdfs/es/data
+path.data: /home/satanson/es/data
 #
 # Path to log files:
 #
-path.logs: /home/hdfs/es/logs
+path.logs: /home/satanson/es/logs
 #
 # ----------------------------------- Memory -----------------------------------
 #

@@ -3,9 +3,9 @@ set -e -o pipefail
 basedir=$(cd $(dirname $(readlink -f ${BASH_SOURCE:-$0}));pwd)
 test  ${basedir} == ${PWD}
 esLocalRoot=$(cd ${basedir}/../es_all/elasticsearch;pwd)
-esDockerRoot=/home/hdfs/es
+esDockerRoot=/home/satanson/es
 kibanaLocalRoot=$(cd ${basedir}/../es_all/kibana;pwd)
-kibanaDockerRoot=/home/hdfs/kibana
+kibanaDockerRoot=/home/satanson/kibana
 
 es_master_list=$(perl -lne 'print $1 if /^\s*\d+(?:\.\d+){3}\s+(es_master\d+)\s*$/' ${PWD}/hosts )
 es_data_list=$(perl -lne 'print $1 if /^\s*\d+(?:\.\d+){3}\s+(es_data\d+)\s*$/' ${PWD}/hosts )
@@ -49,8 +49,8 @@ es_coord_args="
   ${zenPingUnicastHosts}
   "
 
-dockerFlags="-tid --rm -u hdfs -w ${esDockerRoot} --privileged --net static_net0 -v ${PWD}/hosts:/etc/hosts -v ${esLocalRoot}:${esDockerRoot}"
-kibanaDockerFlags="-tid --rm -u hdfs -w ${kibanaDockerRoot} --privileged --net static_net0 -v ${PWD}/hosts:/etc/hosts -v ${kibanaLocalRoot}:${kibanaDockerRoot}"
+dockerFlags="-tid --rm -u satanson -w ${esDockerRoot} --privileged --net static_net0 -v ${PWD}/hosts:/etc/hosts -v ${esLocalRoot}:${esDockerRoot}"
+kibanaDockerFlags="-tid --rm -u satanson -w ${kibanaDockerRoot} --privileged --net static_net0 -v ${PWD}/hosts:/etc/hosts -v ${kibanaLocalRoot}:${kibanaDockerRoot}"
 
 stop_node(){
   local name=$1;shift
@@ -113,8 +113,8 @@ start_es_node_args(){
   mkdir -p ${PWD}/${node}_data
 
   # run docker
-  green_print docker run ${dockerFlags} ${flags} hadoop_debian:8.8 ${esDockerRoot}/bin/elasticsearch ${args}
-  docker run ${dockerFlags} ${flags} hadoop_debian:8.8 ${esDockerRoot}/bin/elasticsearch ${args}
+  green_print docker run ${dockerFlags} ${flags} ubuntu_satanson:18.04 ${esDockerRoot}/bin/elasticsearch ${args}
+  docker run ${dockerFlags} ${flags} ubuntu_satanson:18.04 ${esDockerRoot}/bin/elasticsearch ${args}
 }
 
 stop_es_master(){
@@ -260,8 +260,8 @@ start_kibana_node_args(){
   mkdir -p ${PWD}/${node}_data
 
   # run docker
-  green_print docker run ${kibanaDockerFlags} ${flags} hadoop_debian:8.8 ${kibanaDockerRoot}/bin/kibana ${args}
-  docker run ${kibanaDockerFlags} ${flags} hadoop_debian:8.8 ${kibanaDockerRoot}/bin/kibana ${args}
+  green_print docker run ${kibanaDockerFlags} ${flags} ubuntu_satanson:18.04 ${kibanaDockerRoot}/bin/kibana ${args}
+  docker run ${kibanaDockerFlags} ${flags} ubuntu_satanson:18.04 ${kibanaDockerRoot}/bin/kibana ${args}
 }
 
 stop_kibana_node_args(){
