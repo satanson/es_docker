@@ -271,6 +271,7 @@ start_kibana_node_args(){
 stop_kibana_node_args(){
   local node=${1:?"undefined 'kibana node'"};shift
   local finalize=${1:-"false"}
+  set +e +o pipefail
   stop_node ${node}
   if [ "x${finalize}x" != 'xfalsex' ];then
     datadir=${node}_data
@@ -279,6 +280,7 @@ stop_kibana_node_args(){
       [ -d "${dir}" ] && rm -fr ${dir:?"undefined"}
     done
   fi
+  set -e -o pipefail
 }
 
 bootstrap_kibana(){
